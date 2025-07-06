@@ -1,0 +1,13 @@
+{
+  "name": "alex-cloudfront-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dp:np:w": "sls deploy --verbose -r us-west-2 -s np --force",
+    "dp:rm:w": "sls remove --verbose -r us-west-2 -s np"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

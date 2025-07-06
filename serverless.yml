@@ -1,0 +1,123 @@
+service: alex-cloudfront-service
+
+custom:
+  stage: np
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  environment:
+    ORIGIN_BUCKET_NAME: !ImportValue 'S3-Upload-Bucket'
+    ACCOUNT_ID: ${file(env.yml):${self:custom.stage}.ACCOUNT_ID}
+
+resources:
+  Resources:
+    CloudFrontOriginAccessIdentity:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment:
+            Fn::Join:
+              - ''
+              - - ${self:provider.environment.ORIGIN_BUCKET_NAME}
+                - '.s3.amazonaws.com'
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          Origins:
+            - DomainName:
+                Fn::Join:
+                - ''
+                - - ${self:provider.environment.ORIGIN_BUCKET_NAME}
+                  - '.s3.amazonaws.com'
+              Id: ${self:provider.environment.ORIGIN_BUCKET_NAME}
+              S3OriginConfig:
+                OriginAccessIdentity: !Join 
+                  - ''
+                  - - 'origin-access-identity/cloudfront/'
+                    - !Ref CloudFrontOriginAccessIdentity
+          DefaultCacheBehavior:
+            TargetOriginId: ${self:provider.environment.ORIGIN_BUCKET_NAME}
+            ForwardedValues:
+              Cookies:
+                Forward: "none"
+              QueryString: "true"
+              Headers:
+                - Access-Control-Request-Headers
+                - Access-Control-Request-Method
+            ViewerProtocolPolicy: https-only
+            AllowedMethods:
+              - GET
+              - PUT
+              - DELETE
+              - PATCH
+              - POST
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+    ResponseHeadersPolicy:
+      Type: AWS::CloudFront::ResponseHeadersPolicy
+      Properties: 
+        ResponseHeadersPolicyConfig: 
+          Name: sending-messages-cloudfront-response-headers-policy-config-${self:custom.stage}
+          CorsConfig: 
+            AccessControlAllowCredentials: true
+            AccessControlAllowHeaders: 
+              Items: 
+                - "Content-Type"
+            AccessControlAllowMethods: 
+              Items: 
+                - GET
+                - HEAD
+                - OPTIONS
+            AccessControlAllowOrigins:
+              Items:
+                - "*"
+            OriginOverride: false
+    OriginBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: ${self:provider.environment.ORIGIN_BUCKET_NAME}
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Action:
+                - s3:GetObject
+              Effect: Allow
+              Resource:
+                - !Sub
+                  - "arn:aws:s3:::${OriginBucketName}/*"
+                  - OriginBucketName: ${self:provider.environment.ORIGIN_BUCKET_NAME}
+              Principal:
+                "AWS": !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}"
+            - Action:
+                - "s3:DeleteBucketPolicy"
+                - "s3:PutBucketPolicy"
+              Effect: Deny
+              Resource:
+                - !Sub
+                  - "arn:aws:s3:::${OriginBucketName}"
+                  - OriginBucketName: ${self:provider.environment.ORIGIN_BUCKET_NAME}
+              Principal: "*"
+              Condition:
+                ArnNotEquals:
+                  aws:PrincipalARN:
+                    - !Sub "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:user/Alex"
+            - Action:
+                - "s3:PutObject*"
+                - "s3:DeleteObject*"
+              Effect: Deny
+              Resource:
+                - !Sub
+                  - "arn:aws:s3:::${OriginBucketName}/*"
+                  - OriginBucketName: ${self:provider.environment.ORIGIN_BUCKET_NAME}
+              Principal: "*"
+              Condition:
+                ArnNotEquals:
+                  aws:PrincipalARN:
+                    - !Sub "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:user/Alex"
