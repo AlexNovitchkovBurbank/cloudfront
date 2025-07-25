@@ -1,4 +1,4 @@
-service: alex-cloudfront-service
+service: alex-personal-website-cloudfront
 
 custom:
   stage: np
@@ -8,8 +8,9 @@ provider:
   runtime: nodejs18.x
   region: us-west-2
   environment:
-    ORIGIN_BUCKET_NAME: !ImportValue 'S3-Upload-Bucket'
-    ACCOUNT_ID: ${file(env.yml):${self:custom.stage}.ACCOUNT_ID}
+    ORIGIN_BUCKET_NAME: !ImportValue S3-Upload-Bucket
+    ACCOUNT_ID: !ImportValue Account-Id
+    deploymentBucket: !ImportValue S3-Personal-Website-Stack-Upload-Bucket
 
 resources:
   Resources:
